@@ -1,11 +1,11 @@
 extern crate pnet;
 
+use std::env;
+
 use pnet::datalink::{self, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
-use pnet::packet::{Packet, MutablePacket};
+use pnet::packet::{MutablePacket, Packet};
 use pnet::packet::ethernet::{EthernetPacket, MutableEthernetPacket};
-
-use std::env;
 
 fn main() {
     let interface_name = env::args().nth(1).unwrap();
@@ -18,7 +18,6 @@ fn main() {
         .next()
         .unwrap();
 
-    // Create a new channel, dealing with layer 2 packets
     let (mut tx, mut rx) = match datalink::channel(&interface, Default::default()) {
         Ok(Ethernet(tx, rx)) => (tx, rx),
         Ok(_) => panic!("Unhandled channel type"),
@@ -29,24 +28,7 @@ fn main() {
         match rx.next() {
             Ok(packet) => {
                 let packet = EthernetPacket::new(packet).unwrap();
-
-                // Constructs a single packet, the same length as the the one received,
-                // using the provided closure. This allows the packet to be constructed
-                // directly in the write buffer, without copying. If copying is not a
-                // problem, you could also use send_to.
-                //
-                // The packet is sent once the closure has finished executing.
-                tx.build_and_send(1, packet.packet().len(),
-                                  &mut |mut new_packet| {
-                                      let mut new_packet = MutableEthernetPacket::new(new_packet).unwrap();
-
-                                      // Create a clone of the original packet
-                                      new_packet.clone_from(&packet);
-
-                                      // Switch the source and destination
-                                      new_packet.set_source(packet.get_destination());
-                                      new_packet.set_destination(packet.get_source());
-                                  });
+                println!("Got packet {:?}", packet);
             }
             Err(e) => {
                 // If an error occurs, we can handle it here
