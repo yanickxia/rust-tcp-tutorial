@@ -1,11 +1,15 @@
 extern crate pnet;
 
 use std::env;
+use std::net::IpAddr;
 
 use pnet::datalink::{self, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
 use pnet::packet::{MutablePacket, Packet};
-use pnet::packet::ethernet::{EthernetPacket, MutableEthernetPacket};
+use pnet::packet::ethernet::{EthernetPacket, EtherTypes, MutableEthernetPacket};
+use pnet::packet::ipv4::Ipv4Packet;
+
+mod ip;
 
 fn main() {
     let interface_name = env::args().nth(1).unwrap();
@@ -27,8 +31,28 @@ fn main() {
     loop {
         match rx.next() {
             Ok(packet) => {
-                let packet = EthernetPacket::new(packet).unwrap();
-                println!("Got packet {:?}", packet);
+                let payload_offset;
+                if cfg!(any(target_os = "macos", target_os = "ios"))
+                    && interface.is_up()
+                    && !interface.is_broadcast()
+                    && ((!interface.is_loopback() && interface.is_point_to_point())
+                    || interface.is_loopback())
+                {
+                    if interface.is_loopback() {
+                        // The pnet code for BPF loopback adds a zero'd out Ethernet header
+                        payload_offset = 14;
+                    } else {
+                        // Maybe is TUN interface
+                        payload_offset = 0;
+                    }
+                    if packet.len() > payload_offset && ip::IPv4::is_tcp_ip(&packet[payload_offset..]) {
+                        let ipv4_packet = ip::IPv4::new(&packet[payload_offset..]);
+                        println!("Got Tcp Ip Package From {} To {} Len {}",
+                                 ipv4_packet.header.source(),
+                                 ipv4_packet.header.destination(),
+                                 ipv4_packet.header.len);
+                    }
+                }
             }
             Err(e) => {
                 // If an error occurs, we can handle it here
@@ -38,3 +62,4 @@ fn main() {
     }
     println!("Hello, world!");
 }
+
