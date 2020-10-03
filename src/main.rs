@@ -1,15 +1,12 @@
 extern crate pnet;
 
 use std::env;
-use std::net::IpAddr;
 
 use pnet::datalink::{self, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
-use pnet::packet::{MutablePacket, Packet};
-use pnet::packet::ethernet::{EthernetPacket, EtherTypes, MutableEthernetPacket};
-use pnet::packet::ipv4::Ipv4Packet;
 
 mod ip;
+mod tcp;
 
 fn main() {
     let interface_name = env::args().nth(1).unwrap();
@@ -60,6 +57,5 @@ fn main() {
             }
         }
     }
-    println!("Hello, world!");
 }
 

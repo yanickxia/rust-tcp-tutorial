@@ -1,6 +1,5 @@
 extern crate byteorder;
 
-use std::fs::read;
 use std::net::Ipv4Addr;
 
 use byteorder::{BigEndian, ByteOrder};
