@@ -1,4 +1,20 @@
+use std::collections::HashMap;
+
 use byteorder::{BigEndian, ByteOrder};
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref HASHMAP: HashMap<u64, TCPState> = {
+        let mut m = HashMap::new();
+        m
+    };
+}
+
+pub fn process(tcp_packet: TCP) {}
+
+pub struct TCPState {
+    pub unread: Vec<u8>
+}
 
 pub struct TCPHeader {
     // source port, 16 bit, index 0-1
@@ -72,13 +88,14 @@ impl TCP {
                 reserved: (BigEndian::read_u16(&packet[12..]) << 4 >> 10) as u8,
                 flags: packet[13] << 2 >> 2,
                 windows: BigEndian::read_u16(&packet[14..]),
-                checksum: BigEndian::read_u16(&packet[17..]),
-                urgent_pointer: BigEndian::read_u16(&packet[21..]),
+                checksum: BigEndian::read_u16(&packet[16..]),
+                urgent_pointer: BigEndian::read_u16(&packet[18..]),
             },
             data: Vec::from(&packet[(offset as usize) * 4..]),
         };
     }
 }
+
 
 #[cfg(test)]
 mod test {

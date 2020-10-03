@@ -44,10 +44,13 @@ fn main() {
                     }
                     if packet.len() > payload_offset && ip::IPv4::is_tcp_ip(&packet[payload_offset..]) {
                         let ipv4_packet = ip::IPv4::new(&packet[payload_offset..]);
-                        println!("Got Tcp Ip Package From {} To {} Len {}",
+                        let tcp_packet = tcp::TCP::new(ipv4_packet.data.as_slice());
+                        println!("Got Tcp Ip Package From {}:{} To {}:{} Data Len {}",
                                  ipv4_packet.header.source(),
+                                 tcp_packet.header.source_port,
                                  ipv4_packet.header.destination(),
-                                 ipv4_packet.header.len);
+                                 tcp_packet.header.destination_port,
+                                 tcp_packet.data.len());
                     }
                 }
             }
