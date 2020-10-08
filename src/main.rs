@@ -5,8 +5,12 @@ use std::env;
 use pnet::datalink::{self, NetworkInterface};
 use pnet::datalink::Channel::Ethernet;
 
+use crate::tcp::process;
+
 mod ip;
 mod tcp;
+
+const LISTENING_PORT: u16 = 10023;
 
 fn main() {
     let interface_name = env::args().nth(1).unwrap();
@@ -45,12 +49,26 @@ fn main() {
                     if packet.len() > payload_offset && ip::IPv4::is_tcp_ip(&packet[payload_offset..]) {
                         let ipv4_packet = ip::IPv4::new(&packet[payload_offset..]);
                         let tcp_packet = tcp::TCP::new(ipv4_packet.data.as_slice());
-                        println!("Got Tcp Ip Package From {}:{} To {}:{} Data Len {}",
-                                 ipv4_packet.header.source(),
-                                 tcp_packet.header.source_port,
-                                 ipv4_packet.header.destination(),
-                                 tcp_packet.header.destination_port,
-                                 tcp_packet.data.len());
+
+                        if tcp_packet.header.destination_port != LISTENING_PORT {
+                            continue;
+                        }
+
+                        // println!("Got Tcp Ip Package From {}:{} To {}:{} Data Len {}",
+                        //          ipv4_packet.header.source(),
+                        //          tcp_packet.header.source_port,
+                        //          ipv4_packet.header.destination(),
+                        //          tcp_packet.header.destination_port,
+                        //          tcp_packet.data.len());
+                        match process(ipv4_packet) {
+                            Some(mut packet) => {
+                                packet.checksum();
+                                let bytes = packet.to_bytes();
+                                let xxx = hex::encode(bytes.as_slice());
+                                tx.send_to(bytes.as_slice(), Option::None);
+                            }
+                            None => {}
+                        }
                     }
                 }
             }

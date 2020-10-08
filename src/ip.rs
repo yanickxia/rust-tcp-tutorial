@@ -1,8 +1,11 @@
 extern crate byteorder;
 
+use std::io::{Cursor, Write};
 use std::net::Ipv4Addr;
 
 use byteorder::{BigEndian, ByteOrder};
+
+use self::byteorder::{ReadBytesExt, WriteBytesExt};
 
 pub struct IPv4Header {
     // internet header field, 4bit , index 0
@@ -88,6 +91,76 @@ impl IPv4 {
         return version == 4 && protocol == 6;
     }
 
+    pub fn replay(packet: &IPv4) -> IPv4 {
+        IPv4 {
+            header: IPv4Header {
+                version: packet.header.version,
+                ihl: packet.header.ihl,
+                toc: packet.header.toc,
+                len: packet.header.len,
+                identification: 0,
+                flags: 0,
+                offset: 0,
+                ttl: packet.header.ttl,
+                protocol: packet.header.protocol,
+                checksum: 0,
+                source_address: packet.header.destination_address,
+                destination_address: packet.header.source_address,
+                options_len: 0,
+                options_buffer: vec![],
+            },
+            data: vec![],
+        }
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut wtr = vec![];
+
+        let mut num = (self.header.version as u8) << 4;
+        num = num | self.header.ihl;
+
+        wtr.write_u8(num);
+        wtr.write_u8(self.header.toc);
+        wtr.write_u16::<BigEndian>(self.header.len);
+        wtr.write_u16::<BigEndian>(self.header.identification);
+        let mut combind = (self.header.flags as u16) << 13;
+        combind = combind | self.header.offset;
+        wtr.write_u16::<BigEndian>(combind);
+        wtr.write_u8(self.header.ttl);
+        wtr.write_u8(self.header.protocol);
+        wtr.write_u16::<BigEndian>(self.header.checksum);
+        wtr.write_u32::<BigEndian>(self.header.source_address);
+        wtr.write_u32::<BigEndian>(self.header.destination_address);
+        wtr.write(self.data.as_slice());
+
+        wtr
+    }
+
+    pub fn checksum(&mut self) {
+        let mut wtr = self.to_bytes();
+        wtr = wtr[0..20].to_vec();
+
+        let mut rdr = Cursor::new(wtr);
+        let mut sum: u32 = 0;
+        loop {
+            match rdr.read_u16::<BigEndian>() {
+                Ok(data) => {
+                    sum += (data as u32);
+                }
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+
+        let mut rm = sum / 0xFFFF;
+        while rm != 0 {
+            sum = (sum % 0x10000) + rm;
+            rm = sum / 0xFFFF;
+        }
+
+        self.header.checksum = (sum as u16) ^ (0xFFFF);
+    }
 }
 
 
@@ -116,5 +189,32 @@ mod test {
 
         let data = hex::decode("e67ddf9817e0b77ed8615529801801f52b2300000101080a36f9392c016de81f263cdb224dcc9a4b4c2191ecb4c43c0a3daeb61233ee4af155a60c9dcac70fcebe0fca8964908c1c5f5073c50b0522eb");
         assert_eq!(data.unwrap().as_slice(), ipv4.data.as_slice());
+    }
+
+    #[test]
+    pub fn test_checksum() {
+        let mut pv4 = IPv4 {
+            header: IPv4Header {
+                version: 4,
+                ihl: 5,
+                toc: 0,
+                len: 40,
+                identification: 0xb825,
+                flags: 0b010,
+                offset: 0,
+                ttl: 54,
+                protocol: 6,
+                checksum: 0,
+                source_address: 0x3d937a86,
+                destination_address: 0xc0a80068,
+                options_len: 0,
+                options_buffer: vec![],
+            },
+            data: vec![],
+        };
+
+        pv4.checksum();
+
+        assert_eq!(0x1381, pv4.header.checksum);
     }
 }
